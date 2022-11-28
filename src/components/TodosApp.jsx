@@ -1,19 +1,21 @@
-import React, {useState, createContext, useContext, useEffect } from "react";
+import React, {useState, useContext, useEffect } from "react";
 import { Appwrite } from "../appwrite/config";
 import { UserId } from "./Dashboard";
 import { Query } from "appwrite";
 
 
 const TodosApp = () => {
-    const userId  = useContext(UserId);
+const userId = useContext(UserId);
 
     // state for todolist
 const [todosList, setTodosList] = useState([]);
 const [tasksList, setTasksList] = useState([]);
 const [tasksTodo, setTasksTodo] = useState();
 
-const getTodos = async() =>{
-   const getTodo = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID);
+const getTodos = () =>{
+   const getTodo = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,[
+    Query.equal('userId',userId)
+]);
    getTodo.then(function(response){
     setTodosList(response.documents);
    },
@@ -21,6 +23,14 @@ const getTodos = async() =>{
     console.log(error);
    })
 }
+
+  
+useEffect(()=>{
+  getTodos();
+},[userId]);
+
+
+// setUserId(useContext(UserId));
 
 const getTasks = async(id) =>{
     const getTodo = Appwrite.DATABASE.getDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
@@ -75,11 +85,11 @@ const loadModal = (action,type,id) =>{
         switch (action) {
           case 'Create':
             const createTask = Appwrite.DATABASE.createDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,Appwrite.ID.unique(),{title:Tittle,todoId:id,isDone:false});
-            createTask.then(function(response){getTasks(id)},function(error){console.log(error);})
+            createTask.then(function(response){getTasks(tasksTodo.$id)},function(error){console.log(error);})
             break;
         case 'Update':
           const updateTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,id,{title:Tittle});
-          updateTask.then(function(response){getTasks(id)},function(error){console.log(error);})
+          updateTask.then(function(response){getTasks(tasksTodo.$id)},function(error){console.log(error);})
           break;
           default:
             break;
@@ -116,8 +126,8 @@ const loadModal = (action,type,id) =>{
     
           <div className="modal-footer flex flex-shrink-0 flex-wrap justify-center rounded-b-md border-t border-gray-200 p-4">
             <h1 className="mb-1 text-center font-medium text-green-700 hidden" id="success">
-              <strong>Todo Updated Successfully</strong> <br />
-              Enter new Todo or click on Close
+              <strong>{type} {action}d  Successfully</strong> <br />
+              click on Close
             </h1>
             <button type="button" className="rounded bg-purple-600 px-6 py-2.5 text-xs font-medium uppercase text-white shadow-md hover:bg-purple-700 hover:shadow-lg" onClick={handleClose}>Close</button>
           </div>
@@ -170,7 +180,7 @@ const deleteModal = async(type,id)=>{
   if(type==='Task'){
     const deletetask = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,id);
     deletetask.then(function(response){
-      getTasks(id);
+      getTasks(tasksTodo.$id)
     console.log(response);
   },
   function(error){
@@ -179,10 +189,6 @@ const deleteModal = async(type,id)=>{
   }
 
 }
-  
-useEffect(()=>{
-  getTodos();
-},[])
 
 
 return(<>
@@ -194,7 +200,7 @@ return(<>
                 <aside className="w-1/5 h-full bg-gray-300">
                 <div className="p-1 rounded bg-blue-800 flex justify-between mb-2 text-white">
                         <h2 className="m-auto text-2xl font-bold text-gray-200">Todos List</h2>
-                        <i onClick={()=>{callModal('todoCreate',null)}} class="fa-solid fa-plus bg-gray-800 p-2 rounded-lg text-center text-2xl hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600 pr-2"></i>
+                        <i onClick={()=>{callModal('todoCreate',null)}} className="fa-solid fa-plus bg-gray-800 p-2 rounded-lg text-center text-2xl hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600 pr-2"></i>
                     </div>
     <div className="h-full overflow-y-auto px-2">   
             {todosList && todosList.map((todos)=>(
@@ -207,8 +213,8 @@ return(<>
                         </a>
                     </div>
                     <div className="flex h-[2rem] px-2 m-auto w-2/6 justify-between text-white">
-                        <i onClick={()=>{callModal('todoUpdate',todos.$id)}} class="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
-                        <i onClick={()=>{deleteModal('Todo',todos.$id)}} class="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600"></i>
+                        <i onClick={()=>{callModal('todoUpdate',todos.$id)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+                        <i onClick={()=>{deleteModal('Todo',todos.$id)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600"></i>
                     </div>
                 </div> ))}   
     </div>
@@ -221,7 +227,7 @@ return(<>
                 {tasksTodo ? (<><div className="p-1 rounded bg-blue-800 flex justify-between mb-2 text-white">
                 <h2 className="m-auto text-2xl font-bold text-gray-200">Todo List <span className="text-2xl font-bold py-4 px-2 uppercase">: {tasksTodo.title}</span></h2>
                     <div className="pr-2">
-                   <i onClick={() => {callModal('taskCreate',tasksTodo.$id)}} class="fa-solid fa-plus bg-gray-800 p-2 rounded-lg text-center text-2xl hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+                   <i onClick={() => {callModal('taskCreate',tasksTodo.$id)}} className="fa-solid fa-plus bg-gray-800 p-2 rounded-lg text-center text-2xl hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
                     </div> 
                     </div> 
                 </>) : ('')}
@@ -232,8 +238,8 @@ return(<>
                                 {item.title}
                             </h1>
                             <div className="flex w-1/6 justify-end text-white">
-                                <i onClick={() => {callModal('taskUpdate', item.$id)}} class="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
-                                <i onClick={() => {deleteModal('Task', item.$id)}} class="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
+                                <i onClick={() => {callModal('taskUpdate', item.$id)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+                                <i onClick={() => {deleteModal('Task', item.$id)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
                             </div>
                         </div>
 
