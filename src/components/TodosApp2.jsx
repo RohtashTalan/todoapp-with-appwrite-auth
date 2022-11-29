@@ -18,20 +18,24 @@ const getTodos = () =>{
     Query.equal('userId',userId)
 ]);
    getTodo.then(function(response){
-    setTodosList(response.documents);
+    let tasks = [];
+      response.documents.map((item)=>{
+        item.Tasks = null;
+        tasks.push(item);
+      })
+    setTodosList(tasks);
+    // setTodosList(response.documents); //add with Tasks
    },
    function(error){
     console.log(error);
    })
+
 }
 
-  
 useEffect(()=>{
   getTodos();
 },[userId]);
 
-
-// setUserId(useContext(UserId));
 
 const getTasks = async(id) =>{
     const getTask = Appwrite.DATABASE.getDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
@@ -51,8 +55,6 @@ const getTasks = async(id) =>{
     })
  }
 
-
-
 // Call Modal as per click by user
 const [modal, setModal] = useState(null);
 const [isModal, setIsModal] = useState(false);
@@ -68,30 +70,6 @@ const loadModal = (action,type,id) =>{
       event.preventDefault();
       const Title = document.getElementById('title').value;
     
-      const TasksTodos = (action, Title, id) => {
-        const tasksArray = tasksList;
-        if (action === 'Create') {
-          let task = {
-            "taskId": uuid(),
-            "title": Title,
-            "isDone": false,
-            "createdAt": Date.now(),
-            "updatedAt": Date.now()
-          };
-          tasksArray.push(task);
-          const taskJson = JSON.stringify(tasksArray);
-          return taskJson;
-        }
-        if (action === 'Update') {
-          let index = tasksArray.findIndex((task => task.taskId == id));
-          console.log(index);
-          tasksArray[index].updatedAt = Date.now();
-          tasksArray[index].title = Title;
-          console.log(JSON.stringify(tasksArray));
-          return tasksArray;
-        }
-      }
-      
 
       if(type==='Todo'){
         switch (action) {
@@ -117,15 +95,12 @@ const loadModal = (action,type,id) =>{
         switch (action) {
           case 'Create':
             let createArray = TasksTodos('Create',Title,id);
-
-            console.log(createArray);
-            const createTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id,{'Tasks':createArray})
+            const createTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':createArray})
             createTask.then(function(response){ 
-             getTasks(id); console.log(response);},function(error){console.log(error);})
+             getTasks(tasksTodo.$id);},function(error){console.log(error);})
             break;
         case 'Update':
            let  updateArray = TasksTodos('Update',Title,id);
-           console.log(updateArray);
           const updateTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':updateArray});
           updateTask.then(function(response){getTasks(tasksTodo.$id)},function(error){console.log(error);})
           break;
@@ -204,76 +179,121 @@ const callModal = (type,id) => {
 
 }
 
-const deleteModal = async(type,id)=>{
-  if(type==='Todo'){
-  const deletetodo = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
-  deletetodo.then(function(response){
-    getTodos();
-    console.log(response);
-  },
-  function(error){
-    console.log(error);
-  })}
+const deleteModal = async (type, id) => {
+    if (type === 'Todo') {
+      const deletetodo = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID, Appwrite.COLLECTION_TODOS_ID,id);
+      deletetodo.then(function (response) {
+        getTodos();
+      },
+        function (error) {
+          console.log(error);
+        })
+    }
 
-  if(type==='Task'){
+    if (type === 'Task') {
+      let updateArray = TasksTodos('Delete',null,id);
+      const deletetask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':updateArray});
+      deletetask.then(function (response) {
+        getTasks(tasksTodo.$id)
+      },
+        function (error) {
+          console.log(error);
+        })
+    }
 
-    const deletetask = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
-    deletetask.then(function(response){
-      getTasks(tasksTodo.$id)
-    console.log(response);
-  },
-  function(error){
-    console.log(error);
-  })
   }
 
-}
 const taskIsDone = async(id,isDone)=>{
-  let tasksArray = tasksList;
-let index =tasksArray.findIndex((task => task.taskId == id));
-console.log(index);
-tasksArray[index].updatedAt=Date.now();
-tasksArray[index].isDone=isDone;
-tasksArray = JSON.stringify(tasksArray);
-console.log(tasksArray);
+  let tasksArray = TasksTodos('isDone',isDone,id);
   const isDoneTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':tasksArray});
   isDoneTask.then(function(response){
-    getTasks(tasksTodo.$id)
-  console.log(response);
+    getTasks(tasksTodo.$id);
 },
 function(error){
   console.log(error);
 })
 }
 
-const searchTodos = async() =>{
-  const queryString = document.getElementById('search-input').value;
-    const searchResult = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,[
-      Query.search('title',queryString),
-       Query.equal('userId',userId)
+const TasksTodos = (action, Title, id) => {
+  const tasksArray = tasksList;
+  if (action === 'Create') {
+      let task = {
+          "taskId": uuid(),
+          "title": Title,
+          "isDone": false,
+          "createdAt": Date.now(),
+          "updatedAt": Date.now()
+      };
+      tasksArray.push(task);
+      return StringifyTasks(tasksArray);
+  }
+  if (action === 'Update') {
+      let index = tasksArray.findIndex((task => task.taskId == id));
+      tasksArray[index].updatedAt = Date.now();
+      tasksArray[index].title = Title;
+      return StringifyTasks(tasksArray);
+  }
+  if (action === 'Delete') {
+   let arr = tasksArray.filter((task => task.taskId !== id));
+      return StringifyTasks(arr);
+  }
+  if (action === 'isDone') {
+    let index = tasksArray.findIndex((task => task.taskId == id));
+    tasksArray[index].isDone = Title; //(Title holding isDone value for isDone)
+    return StringifyTasks(tasksArray);
+    
+}
+}
 
-    ]);
-    const searchResult2 = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,[
-      Query.search('title',queryString),
-      
-      Query.equal('userId',"6384883dc8dba5559cb5")
-      
+const StringifyTasks = (tasksArray) =>{
+  let tasks=[];
+      tasksArray.map((item)=>{
+          tasks.push(JSON.stringify(item));
+        })
+      return tasks;
+}
+
+
+  
+/*********************************************************************
+ *  Searching and sorting result
+ * 
+ */
+
+const [searchArray, setSearchArray] = useState([]);
+// const [searchArray, setSearchArray] = useState([]);
+
+const searchTodos = async() =>{
+
+  const queryString = document.getElementById('search-input').value;
+  const regex = new RegExp(queryString, 'gi'); 
+
+    const searchResult = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,[
+      Query.search('Tasks',queryString),
+      Query.equal('userId',userId)
     ]);
     searchResult.then(function(response){
-      console.log(response);
+      // filtering tasks as per Query
+      let tasks = [];
+      let todos = [];
+      response.documents.map((item)=>{
+          item.Tasks.map((task)=>{
+            tasks.push(JSON.parse(task));
+          })
+      let arr = tasks.filter((task => task.title.match(regex) !== null));
+      item.Tasks = arr;
+      tasks=[];
+      todos.push(item);
+      })
+       setSearchArray(todos);
+       console.log(todos);
     },
     function(error){
       console.log(error);
     })
 
-    searchResult2.then(function(response){
-      console.log('Search Result Two');
-      console.log(response);
-    },
-    function(error){
-      console.log(error);
-    })
 }
+
 
 return(<>
        {/* main conatiner  */}
@@ -291,6 +311,55 @@ return(<>
       </button>
     </div>
   </div>
+ 
+  {/* // search result  */}
+  <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+  <table class="w-full text-md text-left font-semibold dark:text-gray-400">
+    <thead class="text-xl font-bold text-blue-700 bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+      <tr>
+        <th scope="col" class="py-3 px-6">Task</th>
+        <th scope="col" class="py-3 px-6">Todo</th>
+        <th scope="col" class="py-3 px-6">createdAt</th>
+        <th scope="col" class="py-3 px-6">updatedAt</th>
+        <th scope="col" class="py-3 px-6">Status</th>
+        <th scope="col" class="py-3 px-6">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+
+    {searchArray && searchArray.map((todo)=>(
+    todo.Tasks.map((task)=>(
+<tr class="bg-gray-300 border-b dark:bg-gray-900 dark:border-gray-700">
+        <td scope="row" class="px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white"> {task.title} </td>
+        <td class="py-4 px-6"> {todo.title} </td>
+        <td class="py-4 px-6"> {task.createdAt} </td>
+        <td class="py-4 px-6"> {task.updatedAt} </td>
+        <td class="py-4 px-6">  
+        {task.isDone ? (<i onClick={() => {taskIsDone(task.taskId,false)}} className="fa-solid fa-check-double text-2xl rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>):(<i onClick={() => {taskIsDone(task.taskId,true)}} className="fa-regular fa-square p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>)}</td>
+        <td class="py-4 px-6 flex justify-between">
+    <i onClick={() => { callModal('taskUpdate', task.taskId) }} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+    <i onClick={() => { deleteModal('Task', task.taskId) }} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
+        </td>
+      </tr>
+    ))
+    ))
+}
+      
+      {/* <tr class="bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700">
+        <td scope="row" class="px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white"> task </td>
+        <td class="py-4 px-6"> todo </td>
+        <td class="py-4 px-6"> {Date()} </td>
+        <td class="py-4 px-6"> {Date()} </td>
+        <td class="py-4 px-6"> <i onClick={() => {taskIsDone('taskId',true)}} className="fa-regular fa-square p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i> </td>
+        <td class="py-4 px-6 flex justify-between">
+          <a href="#" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>
+          <a href="#" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>
+        </td>
+      </tr> */}
+
+    </tbody>
+  </table>
+</div>
 
       {/* Todo Task listing and updatings */}
             <div className="w-full flex px-2 py-4 pb-24 h-full divide-x-2">
