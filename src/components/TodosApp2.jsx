@@ -2,6 +2,7 @@ import React, {useState, useContext, useEffect } from "react";
 import { Appwrite } from "../appwrite/config";
 import { UserId } from "./Dashboard";
 import { Query } from "appwrite";
+import {v4 as uuid} from 'uuid';
 
 
 const TodosApp = () => {
@@ -33,18 +34,23 @@ useEffect(()=>{
 // setUserId(useContext(UserId));
 
 const getTasks = async(id) =>{
-    const getTodo = Appwrite.DATABASE.getDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
-    getTodo.then(function(response){setTasksTodo(response);})
-    const getTask = Appwrite.DATABASE.listDocuments(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,[
-      Query.equal('todoId',id)
-  ]);
+    const getTask = Appwrite.DATABASE.getDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
     getTask.then(function(response){
-        setTasksList(response.documents);
+      let tasks = [];
+      response.Tasks.map((item)=>{
+        tasks.push(JSON.parse(item));
+      })
+      
+      setTasksList(tasks);
+
+       response.Tasks='';
+        setTasksTodo(response)
     },
     function(error){
      console.log(error);
     })
  }
+
 
 
 // Call Modal as per click by user
@@ -60,12 +66,37 @@ const loadModal = (action,type,id) =>{
     // handle submit of form
     const handleSubmit = async(event) =>{
       event.preventDefault();
-      const Tittle = document.getElementById('title').value;
+      const Title = document.getElementById('title').value;
+    
+      const TasksTodos = (action, Title, id) => {
+        const tasksArray = tasksList;
+        if (action === 'Create') {
+          let task = {
+            "taskId": uuid(),
+            "title": Title,
+            "isDone": false,
+            "createdAt": Date.now(),
+            "updatedAt": Date.now()
+          };
+          tasksArray.push(task);
+          const taskJson = JSON.stringify(tasksArray);
+          return taskJson;
+        }
+        if (action === 'Update') {
+          let index = tasksArray.findIndex((task => task.taskId == id));
+          console.log(index);
+          tasksArray[index].updatedAt = Date.now();
+          tasksArray[index].title = Title;
+          console.log(JSON.stringify(tasksArray));
+          return tasksArray;
+        }
+      }
       
+
       if(type==='Todo'){
         switch (action) {
           case 'Create':
-            const createTodo = Appwrite.DATABASE.createDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,Appwrite.ID.unique(),{title:Tittle,userId});
+            const createTodo = Appwrite.DATABASE.createDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,Appwrite.ID.unique(),{title:Title,userId});
             createTodo.then(function(response){
               getTodos();
             },
@@ -74,21 +105,28 @@ const loadModal = (action,type,id) =>{
             })
             break;
         case 'Update':
-          const updateTodo = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id,{title:Tittle});
-          updateTodo.then(function(response){console.log(response);},function(error){console.log(error);})
+          const updateTodo = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id,{title:Title});
+          updateTodo.then(function(response){getTodos();},function(error){console.log(error);})
           break;
           default:
             break;
         }
       }
+
       if(type==='Task'){
         switch (action) {
           case 'Create':
-            const createTask = Appwrite.DATABASE.createDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,Appwrite.ID.unique(),{title:Tittle,todoId:id,isDone:false,userId});
-            createTask.then(function(response){getTasks(tasksTodo.$id)},function(error){console.log(error);})
+            let createArray = TasksTodos('Create',Title,id);
+
+            console.log(createArray);
+            const createTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id,{'Tasks':createArray})
+            createTask.then(function(response){ 
+             getTasks(id); console.log(response);},function(error){console.log(error);})
             break;
         case 'Update':
-          const updateTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,id,{title:Tittle});
+           let  updateArray = TasksTodos('Update',Title,id);
+           console.log(updateArray);
+          const updateTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':updateArray});
           updateTask.then(function(response){getTasks(tasksTodo.$id)},function(error){console.log(error);})
           break;
           default:
@@ -178,7 +216,8 @@ const deleteModal = async(type,id)=>{
   })}
 
   if(type==='Task'){
-    const deletetask = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,id);
+
+    const deletetask = Appwrite.DATABASE.deleteDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,id);
     deletetask.then(function(response){
       getTasks(tasksTodo.$id)
     console.log(response);
@@ -190,7 +229,14 @@ const deleteModal = async(type,id)=>{
 
 }
 const taskIsDone = async(id,isDone)=>{
-  const isDoneTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TASKS_ID,id,{isDone:isDone});
+  let tasksArray = tasksList;
+let index =tasksArray.findIndex((task => task.taskId == id));
+console.log(index);
+tasksArray[index].updatedAt=Date.now();
+tasksArray[index].isDone=isDone;
+tasksArray = JSON.stringify(tasksArray);
+console.log(tasksArray);
+  const isDoneTask = Appwrite.DATABASE.updateDocument(Appwrite.DATABASE_ID,Appwrite.COLLECTION_TODOS_ID,tasksTodo.$id,{'Tasks':tasksArray});
   isDoneTask.then(function(response){
     getTasks(tasksTodo.$id)
   console.log(response);
@@ -276,7 +322,6 @@ return(<>
                 
                 {/* *** TASKS LIST RIGHT SIDE*** */}
                 <div className="w-4/5 h-[90%] px-3" id='tasksList-section'>
-                
                 {tasksTodo ? (<><div className="p-1 rounded bg-blue-800 flex justify-between mb-2 text-white">
                 <h2 className="m-auto text-2xl font-bold text-gray-200">Todo List <span className="text-2xl font-bold py-4 px-2 uppercase">: {tasksTodo.title}</span></h2>
                     <div className="pr-2">
@@ -292,15 +337,15 @@ return(<>
                 <h1 className="font-bold text-2xl text-yellow-800 mb-1">Task Incompleted :</h1>
                     {tasksList.map((item) => (<>
                       {item.isDone ? ('')
-                      :(<div key={item.$id} className="flex w-full bg-gray-400 rounded p-2 shadow-lg mb-2">
-                        <i onClick={() => {taskIsDone(item.$id,true)}} className="fa-regular fa-square p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>
+                      :(<div key={item.taskId} className="flex w-full bg-gray-400 rounded p-2 shadow-lg mb-2">
+                        <i onClick={() => {taskIsDone(item.taskId,true)}} className="fa-regular fa-square p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>
                          
                           <h1 className="w-5/6 font-bold text-gray-900 text-2xl m-auto">
                               {item.title}
                           </h1>
                           <div className="flex w-1/6 justify-end text-white">
-                              <i onClick={() => {callModal('taskUpdate', item.$id)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
-                              <i onClick={() => {deleteModal('Task', item.$id)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
+                              <i onClick={() => {callModal('taskUpdate', item.taskId)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+                              <i onClick={() => {deleteModal('Task', item.taskId)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
                           </div>
                       </div>)}
                        </> ))}
@@ -309,14 +354,14 @@ return(<>
                 
           <h1 className="font-bold text-2xl text-green-700 mb-1">Task completed :</h1>
                     {tasksList.map((item) => (<>
-                         {item.isDone ? (<div key={item.$id} className="flex w-full bg-gray-600 rounded p-2 shadow-lg mb-2">
-                          <i onClick={() => {taskIsDone(item.$id,false)}} className="fa-solid fa-check-double text-2xl rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>
+                         {item.isDone ? (<div key={item.taskId} className="flex w-full bg-gray-600 rounded p-2 shadow-lg mb-2">
+                          <i onClick={() => {taskIsDone(item.taskId,false)}} className="fa-solid fa-check-double text-2xl rounded text-center hover:cursor-pointer hover:bg-blue-600 mr-2 text-orange-700"></i>
                             <h1 className="w-5/6 font-bold text-gray-900 text-2xl m-auto">
                                 {item.title}
                             </h1>
                             <div className="flex w-1/6 justify-end text-white">
-                                <i onClick={() => {callModal('taskUpdate', item.$id)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
-                                <i onClick={() => {deleteModal('Task', item.$id)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
+                                <i onClick={() => {callModal('taskUpdate', item.taskId)}} className="fa-regular fa-pen-to-square bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:cursor-pointer hover:bg-blue-600"></i>
+                                <i onClick={() => {deleteModal('Task', item.taskId)}} className="fa-solid fa-trash-can bg-gray-800 p-2 rounded text-center hover:cursor-pointer hover:bg-blue-600 mx-6"></i>
                             </div>
                         </div>):('')} 
                       </>))}

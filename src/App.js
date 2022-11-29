@@ -3,7 +3,7 @@ import {Route, BrowserRouter, Routes} from 'react-router-dom';
 import Dashboard from "./components/Dashboard";
 import LoginUser from "./components/Login";
 import SignUpUser from "./components/SignUp";
-
+import './App.css'
 
 
 function App() {

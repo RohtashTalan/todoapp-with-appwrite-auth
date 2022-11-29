@@ -1,7 +1,7 @@
 import React, { createContext, useEffect, useState } from "react";
 import {Appwrite} from '../appwrite/config';
 import { useNavigate } from "react-router-dom";
-import TodosApp from "./TodosApp";
+import TodosApp from "./TodosApp2";
 
 const UserId = createContext();
 
@@ -12,7 +12,6 @@ const Dashboard = () => {
     const [userDetails, setUserDetails] = useState();
 
     const signOutUser = async() =>{
-
         Appwrite.ACCOUNT.deleteSessions();
         navigate("/");
     } 
@@ -31,6 +30,8 @@ const Dashboard = () => {
     }, []);
 
 
+
+
 return(
     <>
 
@@ -40,6 +41,7 @@ return(
         <nav className="bg-gray-900 text-white p-4">
             <div className="flex justify-between text-3xl">
             <div>Logo</div>
+
             <div><i className="fa-solid fa-user bg-gray-700 p-2 rounded-lg"></i>  {userDetails && userDetails.name+ '  '} 
             <i onClick={()=>{signOutUser()}}  className="fa-solid fa-right-from-bracket bg-red-700 p-2 rounded-lg hover:cursor-pointer" title="Click to Sign Out"></i>
                 </div>
@@ -58,8 +60,6 @@ return(
             </div>
         </footer>
     </div>
-
-
 </>
 )
 }
